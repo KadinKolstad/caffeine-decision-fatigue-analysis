@@ -44,7 +44,7 @@ The dataset creator is credited for the data; the R analysis and interpretation 
 
 The report includes data checks, grouped summaries, exploratory visualization, Pearson and partial correlations, a Welch two-sample t-test, multiple linear regression with caffeine and sleep as predictors, standardized coefficients, and model diagnostics.
 
-Analysis packages: `tidyverse`, `corrgram`, `ppcor`, and `lm.beta`. The report is written in R Markdown and rendered with `rmarkdown` and `knitr`.
+Analysis packages: tidyverse, corrgram, ppcor, and lm.beta. The report is written in R Markdown and rendered with rmarkdown and knitr.
 
 ## Model limitations
 

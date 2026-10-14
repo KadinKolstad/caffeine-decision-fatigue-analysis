@@ -10,6 +10,11 @@ An R analysis of 25,000 synthetic behavioral records, examining differences in d
 - How does sleep duration relate to fatigue after controlling for caffeine intake?
 - What do regression diagnostics reveal about the limitations of a two-predictor linear model?
 
+## Why I chose this project
+
+As a college student, I heavily rely on caffeine to get me through my day-to-day schedule. Because of this, I was curious about how much caffeine actually affects mental sharpness and decision-making. This seems like a comprehensive dataset that would provide insight into the biggest factors that contribute to mental acuity. I currently average around 600 mg of caffeine a day. Maybe I cannot cheat the system by supplementing my lack of sleep with chemistry.
+
+
 ## Key findings
 
 | Measure | Result |
@@ -48,9 +53,9 @@ Analysis packages: tidyverse, corrgram, ppcor, and lm.beta. The report is writte
 
 ## Model limitations
 
-The regression explains approximately 31.4% of the in-sample variation in fatigue scores, with a residual standard error of approximately 30.4 points. Diagnostics show changing residual variance and departures from normality. Some fitted scores fall outside the possible 0-100 range, so the model is treated as an exploratory baseline. Conventional regression confidence intervals and significance tests require caution given the observed unequal residual variance.
+The regression explains approximately 31.4% of the in-sample variation in fatigue scores, with a residual standard error of approximately 30.4 points. Diagnostics show changing residual variance and deviations in the Q-Q plot. Some fitted scores fall outside the possible 0-100 range, so the model is treated as an exploratory baseline. Regression confidence intervals and significance tests require caution given the observed unequal residual variance.
 
-These are simulated records, not measurements from human participants. Associations may reflect the data-generation rules. The analysis does not validate causal claims or predictions for real people, and it does not include a held-out prediction evaluation.
+These are simulated records, not measurements from human participants. The analysis does not validate causal claims or predictions for real people.
 
 ## Run the report
 

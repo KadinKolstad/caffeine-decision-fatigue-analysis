@@ -1,0 +1,239 @@
+---
+title: "Caffeine Intake and Decision Fatigue"
+output: html_document
+date: "2026-03-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(corrgram)
+library(ppcor)
+library(lm.beta)
+```
+## Introduction
+```{r, include = FALSE}
+decisions <- read_csv("human_decision_fatigue_dataset.csv")
+```
+
+
+This project analyzes the Human Decision Fatigue Behavioral Dataset, published on Kaggle by Sonal Shinde (sonalshinde123). The supplied CSV contains 25,000 simulated records and 13 variables describing decision-making activity, sleep, caffeine intake, stress, and fatigue.
+
+The dataset is synthetic: its records represent simulated decision-making states rather than observations collected from human participants. The fatigue score is constructed from other variables through the data-generation process. Consequently, the relationships examined here may reflect those generation rules and do not establish how caffeine affects fatigue in real people.
+
+The analysis demonstrates exploratory visualization, correlation analysis, and multiple linear regression.
+
+Source: Human Decision Fatigue Behavioral Dataset (https://www.kaggle.com/datasets/sonalshinde123/human-decision-fatigue-behavioral-dataset)
+
+Dataset license: CC0 Public Domain.
+
+
+## Data Checks
+
+```{r data-checks}
+tibble(
+  records = nrow(decisions),
+  variables = ncol(decisions),
+  missing_values = sum(is.na(decisions)),
+  duplicate_rows = sum(duplicated(decisions))
+)
+```
+Keeping 1 duplicate row because I cannot prove that it is an erroneous record.
+
+
+## Exploratory Analysis
+
+Let's see the distribution of fatigue level to begin
+
+```{r}
+ggplot(decisions) +
+  geom_bar(aes(x = Fatigue_Level))
+```
+
+
+```{r}
+decisions |>
+  group_by(Fatigue_Level) |>
+  summarise(Mean_Decision_Time = mean(Avg_Decision_Time_sec)) |>
+  arrange(Mean_Decision_Time)
+  
+```
+
+```{r}
+decisions <- decisions |>
+  mutate(speed_bins = ntile(Avg_Decision_Time_sec, 3), speed_bins = case_when(speed_bins == 1 ~ "Fast",
+      speed_bins == 2 ~ "Medium",
+      speed_bins == 3 ~ "Slow"))
+# Divide decision times into three approximately equal-sized groups.
+
+decisions |>
+  group_by(speed_bins) |>
+  summarise(Coffee_Cups_Avg = mean(Caffeine_Intake_Cups))
+```
+
+
+```{r}
+# Keep records with identical caffeine intake in the same group.
+decisions <- decisions |>
+  mutate(
+    caffeine_bins = case_when(
+      Caffeine_Intake_Cups <= 1 ~ "0-1 cups",
+      Caffeine_Intake_Cups == 2 ~ "2 cups",
+      Caffeine_Intake_Cups >= 3 ~ "3+ cups"),
+    caffeine_bins = factor(
+      caffeine_bins,
+      levels = c("0-1 cups", "2 cups", "3+ cups")
+    )
+  )
+
+decisions |>
+  group_by(caffeine_bins) |>
+  summarise(
+    records = n(),
+    mean_fatigue = mean(Decision_Fatigue_Score),
+    sd_fatigue = sd(Decision_Fatigue_Score),
+    .groups = "drop"
+  )
+
+decisions |>
+  ggplot() +
+  geom_histogram(aes(Stress_Level_1_10, fill = caffeine_bins), binwidth = 0.5) +
+  labs(title = "Stress by Caffeine Intake", x = "Stress Level", y = "Observations", fill = "Caffeine Intake")
+```
+
+
+
+```{r}
+decisions |>
+  ggplot() +
+  geom_histogram(aes(Error_Rate, fill = caffeine_bins), binwidth = 0.02) +
+  labs(title = "Error Rate by Caffeine Intake", x = "Error Rate", y = "Observations", fill = "Caffeine Intake")
+```
+
+```{r}
+ggplot(decisions) +
+  geom_point(aes(Sleep_Hours_Last_Night, Stress_Level_1_10, color = caffeine_bins), alpha = 0.15)
+```
+
+
+
+```{r}
+ggplot(decisions) +
+  geom_point(aes(Stress_Level_1_10, Error_Rate), alpha = 0.15)
+```
+
+```{r}
+ggplot(
+  decisions,
+  aes(x = caffeine_bins, y = Decision_Fatigue_Score)
+) +
+  geom_boxplot(fill = "Blue", outlier.alpha = 0.15) +
+  labs(
+    title = "Simulated decision fatigue by caffeine intake",
+    x = "Reported caffeine intake",
+    y = "Decision fatigue score (0-100)"
+  ) +
+  theme_minimal()
+```
+
+
+
+```{r}
+ggplot(decisions) +
+  geom_point(aes(Sleep_Hours_Last_Night, Error_Rate), alpha = 0.15)
+```
+
+
+```{r}
+cor.test(decisions$Error_Rate, decisions$Decision_Fatigue_Score)
+```
+
+
+
+```{r}
+cor.test(decisions$Sleep_Hours_Last_Night, decisions$Decision_Fatigue_Score)
+```
+There seems to be a strong negative relationship between sleep hours and decision fatigue.
+
+
+```{r}
+correlation_data <- decisions |>
+  transmute(
+    Caffeine = Caffeine_Intake_Cups,
+    Sleep = Sleep_Hours_Last_Night,
+    Fatigue = Decision_Fatigue_Score
+  )
+
+corrgram(correlation_data)
+```
+
+
+
+I wonder what would happen if we find the correlation between sleep hours and decision fatigue taking out caffeine intake
+```{r}
+pcor.test(x = decisions$Decision_Fatigue_Score, y = decisions$Sleep_Hours_Last_Night, z = decisions$Caffeine_Intake_Cups)
+```
+After controlling for caffeine intake, sleep duration and decision fatigue remain negatively correlated within the synthetic dataset (partial r ≈ −0.507).
+
+
+## Comparing Lower and Higher Caffeine Intake
+
+Compare mean fatigue scores between the 0-1 cup and 3+ cup groups using Welch's two-sample t-test.
+
+```{r}
+low_caffeine <- decisions |>
+  filter(caffeine_bins == "0-1 cups") |>
+  pull(Decision_Fatigue_Score)
+
+high_caffeine <- decisions |>
+  filter(caffeine_bins == "3+ cups") |>
+  pull(Decision_Fatigue_Score)
+
+# Calculate the difference as higher intake minus lower intake.
+mean(high_caffeine) - mean(low_caffeine)
+
+t.test(
+  x = high_caffeine,
+  y = low_caffeine,
+  var.equal = FALSE
+)
+```
+
+The 3+ cup group has an approximately 22.31-point higher mean fatigue score than the 0-1 cup group. This comparison describes an unadjusted association within the synthetic dataset. It does not establish that caffeine causes higher fatigue.
+
+
+
+## Regression Analysis
+```{r}
+model <- lm(Decision_Fatigue_Score ~ Caffeine_Intake_Cups + Sleep_Hours_Last_Night, data = decisions)
+
+summary(model)
+confint(model)
+```
+Decision_Fatigue_Hat = 129.219 + 5.257 * (Caffeine_Intake_Cups) - 16.203 * (Sleep_Hours_Last_Night)
+
+
+```{r}
+lm.beta(model)
+```
+
+In this two-predictor model, an additional cup of caffeine is associated with an approximately 5.26-point higher predicted fatigue score when sleep duration is held constant. An additional hour of sleep is associated with an approximately 16.20-point lower predicted fatigue score when caffeine intake is held constant.
+
+Among the two included predictors, sleep duration has the larger absolute standardized coefficient. These estimates describe relationships within synthetic data and do not establish causal effects in real people.
+
+
+## Model Diagnostics
+
+```{r model-diagnostics, fig.width=8, fig.height=7}
+old_par <- par(mfrow = c(2, 2))
+plot(model)
+par(old_par)
+```
+The diagnostic plots show the limitations of the two-predictor linear model. Residual variation changes across fitted values, and the Q–Q plot shows departures from the line of normality. Some fitted scores also fall outside the outcome’s possible range of 0–100.
+
+The model explains approximately 31.4% of the variation in fatigue scores within this dataset. Its residual standard error is approximately 30.4 points, indicating substantial unexplained variation. These findings support treating the model as an exploratory baseline. The usual regression confidence intervals and significance tests should be interpreted cautiously because the diagnostics suggest unequal residual variance.
+
+Overall, higher caffeine intake is associated with higher fatigue scores in the unadjusted comparison and in the model controlling for sleep. Sleep duration has the larger absolute standardized coefficient among the two included predictors. These findings describe synthetic data and do not establish causal effects or validate predictions for real people.
